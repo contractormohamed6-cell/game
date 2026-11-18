@@ -1,0 +1,758 @@
+#include <iostream>
+#include <vector>
+#include <deque>
+#include <string>
+#include <fstream>
+#include <algorithm>
+#include <conio.h>
+#include <windows.h>
+#include <ctime>
+#include <cstdlib>
+#include <iomanip>
+
+using namespace std;
+
+// =============== CONSOLE INTERFACE ===============
+
+void color(int c) {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), c);
+}
+
+void clearScreen() {
+    system("cls");
+}
+
+void pauseScreen() {
+    color(14);
+    cout << "\nPress any key to continue...";
+    _getch();
+}
+
+void title(string t) {
+    color(11);
+    cout << "\n========================================\n";
+    cout << "          " << t << "\n";
+    cout << "========================================\n\n";
+    color(7);
+}
+
+void drawMenu() {
+    clearScreen();
+    color(11);
+
+    cout << "\n";
+    cout << "  +--------------------------------------+\n";
+    cout << "  |                                      |\n";
+    cout << "  |        ARCADE GAMING SYSTEM          |\n";
+    cout << "  |           SNAKE & TETRIS             |\n";
+    cout << "  |                                      |\n";
+    cout << "  +--------------------------------------+\n";
+
+    color(10);
+    cout << "\n          [1] PLAY SNAKE\n";
+    cout << "          [2] PLAY TETRIS\n";
+    cout << "          [3] HIGH SCORES\n";
+    cout << "          [4] HOW TO PLAY\n";
+    cout << "          [5] EXIT\n";
+
+    color(11);
+    cout << "\n  +--------------------------------------+\n";
+    color(14);
+    cout << "\n          Select Your Option: ";
+    color(7);
+}
+
+// =============== SCORE MANAGER ===============
+
+class ScoreManager {
+public:
+
+    void saveScore(string game, string player, int score) {
+        ofstream file("scores.txt", ios::app);
+
+        if (file.is_open()) {
+            file << game << " "
+                 << player << " "
+                 << score << endl;
+            file.close();
+        }
+    }
+
+    void displayScores() {
+        clearScreen();
+        title("HIGH SCORE LEADERBOARD");
+
+        ifstream file("scores.txt");
+
+        string game, player;
+        int score;
+
+        bool found = false;
+
+        color(14);
+        cout << left << setw(15) << "GAME"
+             << setw(18) << "PLAYER"
+             << "SCORE\n";
+
+        cout << "----------------------------------------\n";
+        color(7);
+
+        while (file >> game >> player >> score) {
+            found = true;
+
+            cout << left << setw(15) << game
+                 << setw(18) << player
+                 << score << endl;
+        }
+
+        if (!found)
+            cout << "No scores available yet.\n";
+
+        file.close();
+        pauseScreen();
+    }
+};
+
+// =============== SNAKE GAME ===============
+
+class Snake {
+private:
+
+    const int width = 30;
+    const int height = 15;
+
+    deque<pair<int,int>> snake;
+
+    pair<int,int> food;
+
+    char direction = 'd';
+
+    int score = 0;
+    int level = 1;
+
+    bool gameOver = false;
+
+    string player;
+
+    ScoreManager manager;
+
+    void generateFood() {
+        bool valid;
+
+        do {
+            valid = true;
+
+            food.first = 1 + rand() % (width - 2);
+            food.second = 1 + rand() % (height - 2);
+
+            for (auto p : snake) {
+                if (p == food) {
+                    valid = false;
+                    break;
+                }
+            }
+
+        } while (!valid);
+    }
+
+    void draw() {
+        clearScreen();
+
+        color(11);
+        cout << "============= SNAKE GAME =============\n";
+
+        color(14);
+        cout << "Player: " << player
+             << "   Score: " << score
+             << "   Level: " << level << "\n\n";
+
+        for (int y = 0; y < height; y++) {
+
+            for (int x = 0; x < width; x++) {
+
+                if (x == 0 || x == width - 1 ||
+                    y == 0 || y == height - 1) {
+
+                    color(11);
+                    cout << "#";
+                }
+
+                else if (food.first == x &&
+                         food.second == y) {
+
+                    color(12);
+                    cout << "*";
+                }
+
+                else {
+                    bool printed = false;
+
+                    for (int i = 0; i < snake.size(); i++) {
+
+                        if (snake[i].first == x &&
+                            snake[i].second == y) {
+
+                            color(i == 0 ? 10 : 2);
+
+                            cout << (i == 0 ? 'O' : 'o');
+
+                            printed = true;
+                            break;
+                        }
+                    }
+
+                    if (!printed) {
+                        color(7);
+                        cout << " ";
+                    }
+                }
+            }
+
+            cout << endl;
+        }
+
+        color(14);
+        cout << "\nW A S D : Move";
+        cout << "    P : Pause";
+        cout << "    Q : Quit\n";
+
+        color(7);
+    }
+
+    void pauseGame() {
+        color(14);
+        cout << "\nGAME PAUSED - Press any key to resume";
+        _getch();
+    }
+
+public:
+
+    Snake(string name) {
+        player = name;
+
+        snake.push_back({5,5});
+        snake.push_back({4,5});
+        snake.push_back({3,5});
+
+        generateFood();
+    }
+
+    void play() {
+
+        while (!gameOver) {
+
+            draw();
+
+            if (_kbhit()) {
+
+                char key = tolower(_getch());
+
+                if (key == 'q')
+                    break;
+
+                if (key == 'p') {
+                    pauseGame();
+                }
+
+                if (key == 'w' && direction != 's')
+                    direction = 'w';
+
+                if (key == 's' && direction != 'w')
+                    direction = 's';
+
+                if (key == 'a' && direction != 'd')
+                    direction = 'a';
+
+                if (key == 'd' && direction != 'a')
+                    direction = 'd';
+            }
+
+            pair<int,int> head = snake.front();
+
+            if (direction == 'w') head.second--;
+            if (direction == 's') head.second++;
+            if (direction == 'a') head.first--;
+            if (direction == 'd') head.first++;
+
+            if (head.first <= 0 || head.first >= width - 1 ||
+                head.second <= 0 || head.second >= height - 1) {
+
+                gameOver = true;
+                break;
+            }
+
+            bool eating = (head == food);
+
+            int checkSize = eating ?
+                (int)snake.size() :
+                (int)snake.size() - 1;
+
+            for (int i = 0; i < checkSize; i++) {
+
+                if (head == snake[i]) {
+                    gameOver = true;
+                    break;
+                }
+            }
+
+            if (gameOver)
+                break;
+
+            snake.push_front(head);
+
+            if (eating) {
+
+                score += 10;
+
+                level = score / 50 + 1;
+
+                generateFood();
+
+            } else {
+
+                snake.pop_back();
+            }
+
+            int speed = max(55, 150 - (level - 1) * 15);
+
+            Sleep(speed);
+        }
+
+        clearScreen();
+
+        color(12);
+        title("SNAKE GAME OVER");
+
+        color(14);
+        cout << "Player: " << player << endl;
+        cout << "Final Score: " << score << endl;
+        cout << "Level Reached: " << level << endl;
+
+        manager.saveScore("SNAKE", player, score);
+
+        color(7);
+        pauseScreen();
+    }
+};
+
+// =============== TETRIS GAME ===============
+
+class Tetris {
+private:
+
+    const int W = 10;
+    const int H = 18;
+
+    int board[18][10] = {};
+
+    vector<vector<string>> shapes = {
+
+        {"0000","1111","0000","0000"},
+
+        {"0110","0110","0000","0000"},
+
+        {"0100","1110","0000","0000"},
+
+        {"1000","1110","0000","0000"},
+
+        {"0010","1110","0000","0000"},
+
+        {"1100","0110","0000","0000"},
+
+        {"0110","1100","0000","0000"}
+    };
+
+    vector<string> current;
+
+    int px = 3;
+    int py = 0;
+
+    int score = 0;
+    int lines = 0;
+    int level = 1;
+
+    bool gameOver = false;
+
+    string player;
+
+    ScoreManager manager;
+
+    bool valid(int x, int y, vector<string> shape) {
+
+        for (int r = 0; r < 4; r++) {
+
+            for (int c = 0; c < 4; c++) {
+
+                if (shape[r][c] == '1') {
+
+                    int nx = x + c;
+                    int ny = y + r;
+
+                    if (nx < 0 || nx >= W || ny >= H)
+                        return false;
+
+                    if (ny >= 0 && board[ny][nx])
+                        return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    void spawn() {
+
+        current = shapes[rand() % shapes.size()];
+
+        px = 3;
+        py = 0;
+
+        if (!valid(px, py, current))
+            gameOver = true;
+    }
+
+    void rotate() {
+
+        vector<string> rotated(4, "0000");
+
+        for (int r = 0; r < 4; r++) {
+
+            for (int c = 0; c < 4; c++) {
+
+                rotated[c][3-r] = current[r][c];
+            }
+        }
+
+        if (valid(px, py, rotated))
+            current = rotated;
+    }
+
+    void lockPiece() {
+
+        for (int r = 0; r < 4; r++) {
+
+            for (int c = 0; c < 4; c++) {
+
+                if (current[r][c] == '1') {
+
+                    int x = px + c;
+                    int y = py + r;
+
+                    if (y >= 0 && y < H && x >= 0 && x < W)
+                        board[y][x] = 1;
+                }
+            }
+        }
+
+        int cleared = 0;
+
+        for (int r = H - 1; r >= 0; r--) {
+
+            bool full = true;
+
+            for (int c = 0; c < W; c++) {
+
+                if (board[r][c] == 0) {
+                    full = false;
+                    break;
+                }
+            }
+
+            if (full) {
+
+                cleared++;
+
+                for (int y = r; y > 0; y--) {
+
+                    for (int x = 0; x < W; x++) {
+
+                        board[y][x] = board[y-1][x];
+                    }
+                }
+
+                for (int x = 0; x < W; x++)
+                    board[0][x] = 0;
+
+                r++;
+            }
+        }
+
+        lines += cleared;
+
+        score += cleared * 100;
+
+        level = lines / 5 + 1;
+
+        spawn();
+    }
+
+    void draw() {
+
+        clearScreen();
+
+        color(11);
+        cout << "============= TETRIS GAME =============\n";
+
+        color(14);
+        cout << "Player: " << player
+             << "   Score: " << score
+             << "   Level: " << level
+             << "   Lines: " << lines << "\n\n";
+
+        color(11);
+        cout << "+----------------------+\n";
+
+        for (int y = 0; y < H; y++) {
+
+            cout << "|";
+
+            for (int x = 0; x < W; x++) {
+
+                bool filled = board[y][x];
+
+                for (int r = 0; r < 4; r++) {
+
+                    for (int c = 0; c < 4; c++) {
+
+                        if (current[r][c] == '1' &&
+                            x == px + c && y == py + r) {
+
+                            filled = true;
+                        }
+                    }
+                }
+
+                if (filled) {
+                    color(10);
+                    cout << "[]";
+                }
+                else {
+                    color(8);
+                    cout << " .";
+                }
+            }
+
+            color(11);
+            cout << "|\n";
+        }
+
+        cout << "+----------------------+\n";
+
+        color(14);
+        cout << "\nA/D: Move   W: Rotate   S: Down\n";
+        cout << "P: Pause   Q: Quit\n";
+
+        color(7);
+    }
+
+    void pauseGame() {
+
+        color(14);
+        cout << "\nGAME PAUSED - Press any key to resume";
+
+        _getch();
+    }
+
+public:
+
+    Tetris(string name) {
+        player = name;
+    }
+
+    void play() {
+
+        spawn();
+
+        DWORD lastDrop = GetTickCount();
+
+        while (!gameOver) {
+
+            draw();
+
+            if (_kbhit()) {
+
+                char key = tolower(_getch());
+
+                if (key == 'q')
+                    break;
+
+                if (key == 'p') {
+                    pauseGame();
+                    lastDrop = GetTickCount();
+                }
+
+                if (key == 'a' && valid(px-1, py, current))
+                    px--;
+
+                if (key == 'd' && valid(px+1, py, current))
+                    px++;
+
+                if (key == 's') {
+
+                    if (valid(px, py+1, current)) {
+                        py++;
+                        score += 1;
+                    }
+                    else {
+                        lockPiece();
+                    }
+                }
+
+                if (key == 'w')
+                    rotate();
+            }
+
+            DWORD now = GetTickCount();
+
+            int speed = max(80, 500 - (level - 1) * 60);
+
+            if (now - lastDrop >= (DWORD)speed) {
+
+                if (valid(px, py+1, current)) {
+                    py++;
+                }
+                else {
+                    lockPiece();
+                }
+
+                lastDrop = now;
+            }
+
+            Sleep(20);
+        }
+
+        clearScreen();
+
+        color(12);
+        title("TETRIS GAME OVER");
+
+        color(14);
+        cout << "Player: " << player << endl;
+        cout << "Final Score: " << score << endl;
+        cout << "Lines Cleared: " << lines << endl;
+        cout << "Level Reached: " << level << endl;
+
+        manager.saveScore("TETRIS", player, score);
+
+        color(7);
+        pauseScreen();
+    }
+};
+
+// =============== INSTRUCTIONS ===============
+
+void instructions() {
+
+    clearScreen();
+
+    title("GAME INSTRUCTIONS");
+
+    color(10);
+    cout << "SNAKE GAME\n";
+
+    color(7);
+    cout << "W - Move Up\n";
+    cout << "S - Move Down\n";
+    cout << "A - Move Left\n";
+    cout << "D - Move Right\n";
+    cout << "P - Pause\n";
+    cout << "Q - Quit\n";
+
+    cout << "\n";
+
+    color(10);
+    cout << "TETRIS GAME\n";
+
+    color(7);
+    cout << "A - Move Left\n";
+    cout << "D - Move Right\n";
+    cout << "W - Rotate Block\n";
+    cout << "S - Move Down\n";
+    cout << "P - Pause\n";
+    cout << "Q - Quit\n";
+
+    cout << "\nComplete rows to earn points in Tetris.\n";
+    cout << "Eat food to grow and earn points in Snake.\n";
+
+    pauseScreen();
+}
+
+// =============== MAIN FUNCTION ===============
+
+int main() {
+
+    srand((unsigned int)time(0));
+
+    SetConsoleTitle("Arcade Gaming System - Snake and Tetris");
+
+    string player;
+
+    clearScreen();
+
+    title("WELCOME TO ARCADE GAMING SYSTEM");
+
+    cout << "Enter Player Name (no spaces): ";
+    cin >> player;
+
+    int choice;
+
+    do {
+
+        drawMenu();
+
+        if (!(cin >> choice)) {
+            cin.clear();
+            cin.ignore(1000, '\n');
+            choice = 0;
+        }
+
+        switch (choice) {
+
+            case 1: {
+
+                Snake game(player);
+                game.play();
+                break;
+            }
+
+            case 2: {
+
+                Tetris game(player);
+                game.play();
+                break;
+            }
+
+            case 3: {
+
+                ScoreManager manager;
+                manager.displayScores();
+                break;
+            }
+
+            case 4:
+
+                instructions();
+                break;
+
+            case 5:
+
+                clearScreen();
+
+                color(10);
+                title("THANK YOU FOR PLAYING!");
+
+                color(7);
+                break;
+
+            default:
+
+                color(12);
+                cout << "\nInvalid choice! Try again.\n";
+
+                Sleep(1000);
+        }
+
+    } while (choice != 5);
+
+    return 0;
+}
